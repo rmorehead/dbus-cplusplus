@@ -20,6 +20,7 @@ libdbus_c___1_la_SOURCES = \
 	pendingcall_p.h    \
 	pipe.cpp    \
 	property.cpp    \
+	request-piper.cpp \
 	server.cpp    \
 	server_p.h    \
 	types.cpp    
@@ -57,6 +58,7 @@ libdbus_c___1_HEADERS = \
 	$(HEADER_DIR)/pipe.h          \
 	$(HEADER_DIR)/property.h          \
 	$(HEADER_DIR)/refptr_impl.h          \
+	$(HEADER_DIR)/request-piper.h          \
 	$(HEADER_DIR)/server.h          \
 	$(HEADER_DIR)/types.h          \
 	$(HEADER_DIR)/util.h
