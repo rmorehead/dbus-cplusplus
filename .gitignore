@@ -33,8 +33,6 @@ missing
 /examples/echo_mt/echo-server-glue.h
 /examples/echo_mt/echo-server-mt
 /examples/echo_mt/echo-server-mt-glue.h
-/examples/echo_mt/echo-server-mt.cpp
-/examples/echo_mt/echo-server-mt.h
 /examples/ecore/dbus_ecore
 /examples/ecore/dbus_ecore-glue.h
 /examples/glib/dbus-glue.h
