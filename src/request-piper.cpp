@@ -16,9 +16,8 @@
 
 using namespace DBus;
 
-RequestPiper::RequestPiper(Connection &connection, const std::string&  server_path, const std::string& ia_name)
+RequestPiper::RequestPiper(Connection &connection, const std::string&  server_path)
     : ObjectAdaptor(connection, server_path),
-    InterfaceAdaptor(ia_name),
     response_bytes_count(0)
 {
     //remap to forwarding stub

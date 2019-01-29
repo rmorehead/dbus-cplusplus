@@ -21,8 +21,7 @@ static const char *ECHO_SERVER_PATH = "/org/freedesktop/DBus/Examples/Echo";
         new ::DBus::Callback< interface, ::DBus::Message, const ::DBus::CallMessage &>(this, & EchoServer :: callback);
 
 EchoServer::EchoServer(DBus::Connection &connection)
-    : ::DBus::RequestPiper(connection, ECHO_SERVER_PATH, "org.freedesktop.DBus.EchoDemo"),
-      ::DBus::InterfaceAdaptor("org.freedesktop.DBus.EchoDemo")
+    : ::DBus::RequestPiper(connection, ECHO_SERVER_PATH)
 {
 
     ::DBus::debug_log("re-registering method\n");

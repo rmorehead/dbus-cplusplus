@@ -6,6 +6,7 @@ noinst_PROGRAMS = echo-server-mt
 
 echo_server_mt_SOURCES = echo-server-mt-glue.h echo-server-mt.h echo-server-mt.cpp
 echo_server_mt_LDADD = $(top_builddir)/src/libdbus-c++-1.la $(PTHREAD_LIBS)
+echo_server_mt_CXXFLAGS = $(PTHREAD_CFLAGS)
 
 echo-server-mt-glue.h: echo-introspect.xml
 	$(top_builddir)/tools/dbusxx-xml2cpp $^ --adaptor=$@

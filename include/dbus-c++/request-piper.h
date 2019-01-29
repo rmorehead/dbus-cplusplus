@@ -92,12 +92,11 @@ namespace DBus
 
 
 class DXXAPI RequestPiper
-: public ObjectAdaptor,
-    virtual InterfaceAdaptor
+: public ObjectAdaptor
 
 {
 public:
-    RequestPiper(Connection &connection, const std::string&  server_path, const std::string& ia_name);
+    RequestPiper(Connection &connection, const std::string&  server_path);
 
     void worker_thread(void);
     void do_send(CallMessage& msg, Message& res, Tag* tag);
