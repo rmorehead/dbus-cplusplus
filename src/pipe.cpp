@@ -84,7 +84,7 @@ void Pipe::write(const void *buffer, unsigned int nbytes)
 
     //Write payload handling EINTR and partial writes
     bytes_written = 0;
-    while (bytes_written < sizeof(nbytes)) {
+    while (bytes_written < nbytes) {
         rc = ::write(_fd_write,
                      static_cast <const char *>(buffer) + bytes_written,
                      nbytes-bytes_written);
