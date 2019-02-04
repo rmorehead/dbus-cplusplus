@@ -20,8 +20,16 @@ RequestPiper::RequestPiper(Connection &connection, const std::string&  server_pa
     : ObjectAdaptor(connection, server_path),
       _dispatcher_thread(pthread_self())
 {
-    //remap to forwarding stub
+    _create_pipe();
+}
 
+RequestPiper::RequestPiper(Connection &connection, const std::string&  server_path, pthread_t dispatcher_thread)
+    : ObjectAdaptor(connection, server_path),
+      _dispatcher_thread(dispatcher_thread) {
+    _create_pipe();
+}
+
+void RequestPiper::_create_pipe(void) {
     debug_log("Creating pipe()");
     if (0 != pipe(request_pipefd)) {
         debug_log("pipe failed");
@@ -30,14 +38,6 @@ RequestPiper::RequestPiper(Connection &connection, const std::string&  server_pa
     debug_log("created request_pipefd[0] %i %p this %p", request_pipefd[0], request_pipefd, this);
     debug_log("created request_pipefd[1] %i %p this %p", request_pipefd[1], request_pipefd, this);
 }
-
-
-RequestPiper::RequestPiper(Connection &connection, const std::string&  server_path, pthread_t dispatcher_thread)
-    :RequestPiper(connection, server_path) {
-    _dispatcher_thread = dispatcher_thread;
-}
-
-
 
 Message RequestPiper::_Forwarding_stub(const CallMessage &call) {
 

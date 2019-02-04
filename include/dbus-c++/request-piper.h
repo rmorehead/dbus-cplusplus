@@ -178,6 +178,8 @@ private:
 
     std::vector< SignalMessage > signal_queue;
 
+    void _create_pipe(void);
+
     void process_pipe_request(void);
     int request_pipefd[2];
     pthread_t _dispatcher_thread;
