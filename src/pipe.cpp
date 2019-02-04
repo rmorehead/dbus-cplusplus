@@ -66,6 +66,9 @@ void Pipe::write(const void *buffer, unsigned int nbytes)
 {
     ssize_t rc;
     ssize_t bytes_written = 0;
+    debug_log("Request write %i bytes", (int)nbytes);
+
+    _write_mutex.lock();
 
     // Write size handling EINTR and partial writes
     while (bytes_written < sizeof(nbytes)) {
@@ -75,6 +78,7 @@ void Pipe::write(const void *buffer, unsigned int nbytes)
         if (-1 == rc) {
             if (errno != EINTR) {
                 nbytes = 0;
+                _write_mutex.unlock();
                 return;
             }
             continue;
@@ -86,41 +90,43 @@ void Pipe::write(const void *buffer, unsigned int nbytes)
     bytes_written = 0;
     while (bytes_written < nbytes) {
         rc = ::write(_fd_write,
-                     static_cast <const char *>(buffer) + bytes_written,
+                     ((char*)buffer) + bytes_written,
                      nbytes-bytes_written);
         if (-1 == rc) {
             if (errno != EINTR) {
+                debug_log("Unexpected errno %i", errno);
                 nbytes = 0;
+                _write_mutex.unlock();
                 return;
             }
             continue;
         }
         bytes_written += rc;
     }
-
-  // ...then write the real data
-
+    debug_log("Wrote %i bytes", (int)bytes_written);
+    _write_mutex.unlock();
 }
 
-ssize_t Pipe::read(void *buffer, unsigned int &nbytes)
+ssize_t Pipe::read(void *buffer, unsigned int &out_nbytes)
 {
 
     // Read size handling EINTR and partial reads. Note: Since the
     // size is written in a single write() and this needs to return
     // without blocking if no data is waiting, we can leave the "size"
     // read as non-blocking.
-    nbytes = 0;
+    debug_log("Pipe read requested");
+    unsigned int nbytes = 0;
     ssize_t rc;
     ssize_t size = 0;
     while (size < sizeof(unsigned int)) {
         rc = ::read(_fd_read, ((char*)&nbytes) + size, sizeof(unsigned int) - size);
         if (-1 == rc) {
             if (errno != EINTR) {
-                nbytes = 0;
+                out_nbytes = 0;
                 // wait for eagain since the entire size should be showing up ASAP since
                 // it is written in a single call.
                 if (errno != EAGAIN) {
-                    debug_log("Unexpected errno of %i when reading fd %i\n", errno, _fd_read);
+                    debug_log("Unexpected errno of %i when reading fd %i", errno, _fd_read);
                     return -1;
                 }
                 return 0;
@@ -136,7 +142,7 @@ ssize_t Pipe::read(void *buffer, unsigned int &nbytes)
     int old_flags = fcntl(_fd_read, F_GETFL);
     if (old_flags == -1) {
         // trouble
-        debug_log("%s fcntl() failed with errno %i for FD %i\n",
+        debug_log("%s fcntl() failed with errno %i for FD %i",
                 __FUNCTION__, errno, _fd_read);
     } else {
         // make blocking if was non-blocking
@@ -166,7 +172,8 @@ cleanup:
         //restore flags if needed
         fcntl(_fd_read, F_SETFL, old_flags);
     }
-
+    out_nbytes = size;
+    debug_log("Pipe read %i bytes", (int)size);
     return size;
 }
 

@@ -26,6 +26,7 @@
 
 /* Project */
 #include "api.h"
+#include "eventloop.h" //for DefaultMutex
 
 /* STD */
 #include <cstdlib>
@@ -63,6 +64,7 @@ private:
   // allow construction only in BusDispatcher
   Pipe(void(*handler)(const void *data, void *buffer, unsigned int nbyte), const void *data);
   ~Pipe() {};
+  DefaultMutex _write_mutex; //to ensure size and payload are written non-overlapping
 
   friend class BusDispatcher;
 };

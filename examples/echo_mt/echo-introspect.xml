@@ -26,6 +26,9 @@
     <method name="Info">
       <arg type="a{ss}" name="info" direction="out"/>
     </method>
-    
+    <signal name="SumSignal">
+      <arg type="i" name="sum"/>
+      <arg type="t" name="when"/>
+    </signal>
   </interface>
 </node>

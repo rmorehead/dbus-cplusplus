@@ -362,11 +362,14 @@ bool ObjectProxy::handle_message(const Message &msg)
   {
   case DBUS_MESSAGE_TYPE_SIGNAL:
   {
+    debug_log("ObjectProxy::handle_message DBUS_MESSAGE_TYPE_SIGNAL");
     const SignalMessage &smsg = reinterpret_cast<const SignalMessage &>(msg);
     const char *interface	= smsg.interface();
     const char *member	= smsg.member();
     const char *objpath	= smsg.path();
 
+    debug_log("ObjectProxy::handle_message target path %s Signal: objpath %s interface %s member %s",
+              path().c_str(), objpath, interface, member);
     if (objpath != path()) return false;
 
     debug_log("filtered signal %s(in %s) from %s to object %s",

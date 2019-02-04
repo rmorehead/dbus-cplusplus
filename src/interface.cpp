@@ -132,6 +132,7 @@ bool InterfaceProxy::dispatch_signal(const SignalMessage &msg)
 {
   const char *name = msg.member();
 
+  debug_log("InterfaceProxy::Dispatch_Signal");
   SignalTable::iterator si = _signals.find(name);
   if (si != _signals.end())
   {

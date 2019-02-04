@@ -8,7 +8,9 @@
 #include <utility>
 
 class EchoServer
-  : public org::freedesktop::DBus::EchoDemo_adaptor,
+:public org::freedesktop::DBus::EchoDemo_adaptor,
+    public DBus::IntrospectableAdaptor,
+    public DBus::PropertiesAdaptor,
     public ::DBus::RequestPiper
 {
 public:

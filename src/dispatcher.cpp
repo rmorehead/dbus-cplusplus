@@ -95,6 +95,8 @@ bool Watch::enabled() const
 
 bool Watch::handle(int flags)
 {
+    debug_log("Calling dbus_watch_handle(%p, %i)",
+              (DBusWatch *)_int, flags);
   return dbus_watch_handle((DBusWatch *)_int, flags);
 }
 
@@ -157,9 +159,11 @@ void Dispatcher::Private::on_toggle_timeout(DBusTimeout *timeout, void *data)
 
 void Dispatcher::queue_connection(Connection::Private *cp)
 {
+   debug_log("Pushing _pending_queue back on %p",cp);
   _mutex_p.lock();
   _pending_queue.push_back(cp);
   _mutex_p.unlock();
+  debug_log("Done pushing _pending_queue back on %p",cp);
 }
 
 
@@ -195,8 +199,10 @@ void Dispatcher::dispatch_pending()
 
     size_t copy_elem_num(pending_queue_copy.size());
 
-    dispatch_pending(pending_queue_copy);
+    debug_log("%s Calling dispatch_pending(pending_queue_copy)", __FUNCTION__);
 
+    dispatch_pending(pending_queue_copy);
+    debug_log("%s Done dispatch_pending(pending_queue_copy)", __FUNCTION__);
     //only push_back on list is mandatory!
     _mutex_p.lock();
 
@@ -207,6 +213,8 @@ void Dispatcher::dispatch_pending()
     {
       j = i;
       ++j;
+
+      debug_log("%s Erasing pending queue %p", __FUNCTION__, *i);
       _pending_queue.erase(i);
       i = j;
       ++counter;
@@ -233,10 +241,15 @@ void Dispatcher::dispatch_pending(Connection::PrivatePList &pending_queue)
 
       ++j;
 
-      if ((*i)->do_dispatch())
+      debug_log("do_dispatch() on %p", *i);
+      if ((*i)->do_dispatch()) {
+
+          debug_log("dispatch_pending_private: erasing i from queue %p has_something_to_dispatch == %i", *i,
+                    (*i)->has_something_to_dispatch());
         pending_queue.erase(i);
+      }
       else
-        debug_log("dispatch_pending_private: do_dispatch error");
+        debug_log("dispatch_pending_private: do_dispatch error or no more work");
 
       i = j;
     }

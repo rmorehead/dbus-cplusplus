@@ -28,6 +28,7 @@
 #include <dbus-c++/eventloop.h>
 #include <dbus-c++/debug.h>
 
+#include <errno.h>
 #include <sys/poll.h>
 #include <sys/time.h>
 
@@ -212,7 +213,9 @@ void DefaultMainLoop::dispatch(std::vector<int>& pipe_fds)
 
   _mutex_t.unlock();
 
-  poll(fds, nfd, wait_min);
+  errno = 0;
+  int poll_rc = poll(fds, nfd, wait_min);
+  debug_log("poll result is %i errno is %i", poll_rc, errno);
 
   timeval now;
   gettimeofday(&now, NULL);
@@ -249,7 +252,6 @@ void DefaultMainLoop::dispatch(std::vector<int>& pipe_fds)
   for (int j = 0; j < nfd; ++j)
   {
     DefaultWatches::iterator wi;
-
     for (wi = _watches.begin(); wi != _watches.end();)
     {
       DefaultWatches::iterator tmp = wi;

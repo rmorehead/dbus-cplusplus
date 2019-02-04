@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+#include <time.h>
 
 static const char *ECHO_SERVER_NAME = "org.freedesktop.DBus.Examples.Echo";
 static const char *ECHO_SERVER_PATH = "/org/freedesktop/DBus/Examples/Echo";
@@ -28,8 +29,8 @@ EchoServer::EchoServer(DBus::Connection &connection)
     //remap to forwarding stub
 
     ::DBus::RequestPiper::origMethodTable = EchoDemo_adaptor::_methods;
-    ::DBus::debug_log("Registering using methods %p\n", &(EchoDemo_adaptor::_methods));
 
+    ::DBus::debug_log("Registering using methods %p\n", &(EchoDemo_adaptor::_methods));
     ::DBus::MethodTable::iterator it;
     for(it = EchoDemo_adaptor::_methods.begin(); it != EchoDemo_adaptor::_methods.end(); it++) {
         // iterator->first = key
@@ -76,6 +77,8 @@ int32_t EchoServer::Sum(const std::vector<int32_t>& ints)
   int32_t sum = 0;
 
   for (size_t i = 0; i < ints.size(); ++i) sum += ints[i];
+
+  this->SumSignal(sum, (int64_t)time(NULL));
 
   return sum;
 }

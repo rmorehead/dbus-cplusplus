@@ -39,13 +39,14 @@ static void _debug_log_default(const char *format, ...)
 
   if (debug_env)
   {
+    char buf[1024];
     va_list args;
     va_start(args, format);
-
-    fprintf(stderr, "dbus-c++: ");
-    vfprintf(stderr, format, args);
-    fprintf(stderr, "\n");
-
+    vsnprintf(buf, sizeof(buf), format, args);
+    /* print it "all at once" so it is on same line when logging from
+     * multiple threads.
+     */
+    fprintf(stderr, "dbus-c++: %s\n", buf);
     va_end(args);
   }
 

@@ -129,13 +129,16 @@ bool Connection::Private::do_dispatch()
     return true;
   }
 
-  return dbus_connection_dispatch(conn) != DBUS_DISPATCH_DATA_REMAINS;
+  bool res = dbus_connection_dispatch(conn) != DBUS_DISPATCH_DATA_REMAINS;
+  debug_log("Done dispatching on %p rc = %i", conn, res);
+  return res;
 }
 
 void Connection::Private::dispatch_status_stub(DBusConnection *dc, DBusDispatchStatus status, void *data)
 {
   Private *p = static_cast<Private *>(data);
 
+  debug_log("dispatch_status_stub p=%p", p);
   switch (status)
   {
   case DBUS_DISPATCH_DATA_REMAINS:
@@ -324,7 +327,7 @@ void Connection::add_match(const char *rule)
 
   dbus_bus_add_match(_pvt->conn, rule, e);
 
-  debug_log("%s: added match rule %s", unique_name(), rule);
+  debug_log("%s: added match rule %s %p", unique_name(), rule, (void*)e);
 
   if (e) throw Error(e);
 }

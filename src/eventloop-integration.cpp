@@ -107,11 +107,13 @@ void BusDispatcher::enter()
       char buffer[1024]; // TODO: should be max pipe size
       unsigned int nbytes = 0;
 
-      while (read_pipe->read(buffer, nbytes) > 0)
+      // try to be fair by only handling a message from each pipe at a time.
+      if (read_pipe->read(buffer, nbytes) > 0)
       {
+        debug_log("running loop post-pipe read success %p", this);
         read_pipe->_handler(read_pipe->_data, buffer, nbytes);
       }
-
+      debug_log("running loop post-pipe read empty %p", this);
     }
   }
 
