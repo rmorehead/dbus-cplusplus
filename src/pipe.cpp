@@ -73,7 +73,7 @@ void Pipe::write(const void *buffer, unsigned int nbytes)
     // Write size handling EINTR and partial writes
     while (bytes_written < sizeof(nbytes)) {
         rc = ::write(_fd_write,
-                     ((char*)static_cast <const unsigned int *>(&nbytes)) + bytes_written,
+                     reinterpret_cast<char*>(&nbytes) + bytes_written,
                      sizeof(nbytes)-bytes_written);
         if (-1 == rc) {
             if (errno != EINTR) {
@@ -90,7 +90,7 @@ void Pipe::write(const void *buffer, unsigned int nbytes)
     bytes_written = 0;
     while (bytes_written < nbytes) {
         rc = ::write(_fd_write,
-                     ((char*)buffer) + bytes_written,
+                     reinterpret_cast<const char*>(buffer) + bytes_written,
                      nbytes-bytes_written);
         if (-1 == rc) {
             if (errno != EINTR) {
@@ -119,7 +119,7 @@ ssize_t Pipe::read(void *buffer, unsigned int &out_nbytes)
     ssize_t rc;
     ssize_t size = 0;
     while (size < sizeof(unsigned int)) {
-        rc = ::read(_fd_read, ((char*)&nbytes) + size, sizeof(unsigned int) - size);
+        rc = ::read(_fd_read, reinterpret_cast<char*>(&nbytes) + size, sizeof(unsigned int) - size);
         if (-1 == rc) {
             if (errno != EINTR) {
                 out_nbytes = 0;
@@ -143,7 +143,7 @@ ssize_t Pipe::read(void *buffer, unsigned int &out_nbytes)
     if (old_flags == -1) {
         // trouble
         debug_log("%s fcntl() failed with errno %i for FD %i",
-                __FUNCTION__, errno, _fd_read);
+                  __func__, errno, _fd_read);
     } else {
         // make blocking if was non-blocking
         if (old_flags & O_NONBLOCK) {
@@ -154,12 +154,12 @@ ssize_t Pipe::read(void *buffer, unsigned int &out_nbytes)
     // Read payload handling EINTR and partial reads
     size = 0;
     while (size < nbytes ) {
-        rc = ::read(_fd_read, ((char*)buffer) + size, nbytes - size);
+        rc = ::read(_fd_read, reinterpret_cast<char*>(buffer) + size, nbytes - size);
         if (-1 == rc) {
             if (errno != EINTR) {
                 nbytes = 0;
                 size = 0;
-                debug_log("%s read() of FD %i failed unexpected with errno %i", __FUNCTION__, _fd_read, errno);
+                debug_log("%s read() of FD %i failed unexpected with errno %i", __func__, _fd_read, errno);
                 goto cleanup;
             }
             continue;

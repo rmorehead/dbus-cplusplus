@@ -138,7 +138,7 @@ public:
 
   Message dispatch_method(const CallMessage &);
 
-  virtual void emit_signal(const SignalMessage &);
+  void emit_signal(const SignalMessage &);
 
   Variant *get_property(const std::string &name);
 

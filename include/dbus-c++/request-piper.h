@@ -38,9 +38,9 @@
   per-process singleton distributer thread to another thread in the
   same process to be serviced: your "Service Worker Thread".
 
-  This has approach is advantageous because blocking the dispatcher
-  thread prevents your DBus process from handling other requests or
-  receiving DBUS signals while your dispatcher thread is blocked.
+  This approach is advantageous because blocking the dispatcher thread
+  prevents your DBus process from handling other requests or receiving
+  DBUS signals while your dispatcher thread is blocked.
 
   The RequestPiper subclass, your service, will need to update the
   _methods map to point any methods that need to be handled by the
@@ -64,7 +64,7 @@
   by using the RequestPipe as the notification mechanism, (3) in the
   diagram below. Finally the initial dispatcher thread processing
   finishes by calling Object::return_later() method which tells DBus
-  C++ that this call will responsed to in the future.
+  C++ that this call will responded to in the future.
 
   Your worker thread is altered to queued requests by characters
   written to the request_pipefd, (4) in the following diagram, so
@@ -110,17 +110,17 @@
   DBUS SIGNAL SENDING
   -------------------
 
-  The request_piper class also overrides emit_signal to ensure that
+  The RequestPiper class also overrides _emit_signal to ensure that
   worker thread is not blocked by any outgoing signal back pressure.
 
-  When emit_signal is called in the worker thread the signal message
+  When _emit_signal is called in the worker thread the signal message
   is placed into the signal_queue, (1) in Diagram B below, and then
   the response_n_signal_pipe is written, (2).
 
   At that point the dispatcher thread, which is monitoring the
   response_n_signal_pipe, will read the data off the
   response_n_signal_pipe, (3), and pop the signal from the
-  signal_queue (4). The signal is then sent via emit_signal() in the
+  signal_queue (4). The signal is then sent via _emit_signal() in the
   dispatcher thread, and is send to the DBus daemon as a signal (5).
 
 
@@ -144,7 +144,11 @@ class DXXAPI RequestPiper
 {
 public:
     RequestPiper(Connection &connection, const std::string&  server_path);
-    // can't use default argument since pthread_t has no portable NULL pthread_t equivalent
+    /* can't use default argument for dispatcher_thread since
+      pthread_t has no portable NULL pthread_t equivalent, so we can't
+      cleanly specify a constant to represent "default to current
+      thread" argument value.
+    */
     RequestPiper(Connection &connection, const std::string&  server_path, pthread_t dispatcher_thread);
     void worker_thread(void);
     void do_send(CallMessage& msg, Message& res, Tag* tag);
@@ -163,7 +167,7 @@ public:
     MethodTable origMethodTable;
 
 protected:
-    virtual void emit_signal(SignalMessage &sig);
+    virtual void _emit_signal(SignalMessage &sig);
 
 private:
 

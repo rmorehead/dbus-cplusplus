@@ -162,9 +162,11 @@ protected:
 
   Continuation *find_continuation(const Tag *tag);
 
-private:
+protected:
 
-  void _emit_signal(SignalMessage &);
+  virtual void _emit_signal(SignalMessage &);
+
+private:
 
   bool handle_message(const Message &);
 

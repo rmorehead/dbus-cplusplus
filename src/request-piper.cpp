@@ -44,10 +44,6 @@ Message RequestPiper::_Forwarding_stub(const CallMessage &call) {
     // If dispatcher thread invoke the real stub now, else put in
     // forwarding queue
     pthread_t this_thread = pthread_self();
-    if (pthread_equal(this_thread, _dispatcher_thread)) {
-        // Don't to redirect, just call stub directly
-        return _call_orig_method(call);
-    }
 
     debug_log("Forwarding stub called");
     Tag* later_tag = new Tag();
@@ -56,7 +52,6 @@ Message RequestPiper::_Forwarding_stub(const CallMessage &call) {
     /* can release lock here because it doesn't matter if what is written to pipe
        matches what is in queue.
     */
-    request_mutex.unlock();
 
     // Write a char to wake up the far side.
     int res = write(request_pipefd[1], "x", 1);
@@ -64,6 +59,8 @@ Message RequestPiper::_Forwarding_stub(const CallMessage &call) {
         debug_log("Failed to write");
         //write error return value here...
     }
+
+    request_mutex.unlock();
 
     /* return_later() throws an exception which records the
       "continuation" Since this same thread will delete the
@@ -129,6 +126,7 @@ void RequestPiper::process_pipe_request(void) {
         //process the message if possible
         request_mutex.lock();
         if (!request_queue.size()) {
+            debug_log("Request queue unexpectedly empty");
             request_mutex.unlock();
             return;
         }
@@ -170,7 +168,7 @@ void RequestPiper::dispatcher_pipe_handler(void *buffer, unsigned int nbyte) {
     // size as written, so we just need to confirm that this true.
     if (sizeof(curTag) != nbyte) {
         debug_log("%s expected size %i, received size %i",
-                __FUNCTION__, (int)sizeof(curTag), (int)nbyte);
+                __func__, (int)sizeof(curTag), (int)nbyte);
         return;
     }
 
@@ -192,7 +190,7 @@ void RequestPiper::dispatcher_pipe_handler(void *buffer, unsigned int nbyte) {
     } else {
         //its a signal message if the tag is NULL
         response_n_signal_mutex.lock();
-        printf("About to unpack dbus signal call msg %i size %i", signal_queue[0].serial(),
+        debug_log("About to unpack dbus signal call msg %i size %i", signal_queue[0].serial(),
                   (int)signal_queue.size());
         SignalMessage msg(signal_queue[0]);
         signal_queue.erase(signal_queue.begin());
@@ -201,7 +199,7 @@ void RequestPiper::dispatcher_pipe_handler(void *buffer, unsigned int nbyte) {
 
         // Using dynamic cast because diamond inheritance makes refering to IA tricky
         InterfaceAdaptor* ia = dynamic_cast<InterfaceAdaptor*>(this);
-        ia->emit_signal(msg);
+        ObjectAdaptor::_emit_signal(msg);
     }
 }
 
@@ -232,23 +230,25 @@ int RequestPiper::get_request_read_fd(void) const
     return request_pipefd[0];
 }
 
-void RequestPiper::emit_signal(SignalMessage &sig)
+void RequestPiper::_emit_signal(SignalMessage &sig)
 {
-    debug_log("server: emit_signal()");
+    debug_log("server: _emit_signal()");
     pthread_t this_thread = pthread_self();
     if (pthread_equal(this_thread, _dispatcher_thread)) {
-        // Don't do redirect.
+        // Don't use piping to get to dispatcher thread because we are
+        // in dispatcher thread.
+
         // Using dynamic cast because diamond inheritance makes refering to IA tricky
+        debug_log("_emit() Same thread dispatching locally");
         InterfaceAdaptor* ia = dynamic_cast<InterfaceAdaptor*>(this);
-        ia->emit_signal(sig);
+        ObjectAdaptor::_emit_signal(sig);
+        return;
     }
 
     response_n_signal_mutex.lock();
     signal_queue.push_back(SignalMessage(sig, false));
     //wake up by sending tag
     Tag* tag = NULL;
-
     response_n_signal_pipe->write(&tag, sizeof(tag));
-    //can't
     response_n_signal_mutex.unlock();
 }

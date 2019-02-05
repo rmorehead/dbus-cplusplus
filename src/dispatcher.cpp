@@ -199,10 +199,10 @@ void Dispatcher::dispatch_pending()
 
     size_t copy_elem_num(pending_queue_copy.size());
 
-    debug_log("%s Calling dispatch_pending(pending_queue_copy)", __FUNCTION__);
+    debug_log("%s Calling dispatch_pending(pending_queue_copy)", __func__);
 
     dispatch_pending(pending_queue_copy);
-    debug_log("%s Done dispatch_pending(pending_queue_copy)", __FUNCTION__);
+    debug_log("%s Done dispatch_pending(pending_queue_copy)", __func__);
     //only push_back on list is mandatory!
     _mutex_p.lock();
 
@@ -214,7 +214,7 @@ void Dispatcher::dispatch_pending()
       j = i;
       ++j;
 
-      debug_log("%s Erasing pending queue %p", __FUNCTION__, *i);
+      debug_log("%s Erasing pending queue %p", __func__, *i);
       _pending_queue.erase(i);
       i = j;
       ++counter;
