@@ -195,11 +195,6 @@ void ObjectAdaptor::_emit_signal(SignalMessage &sig)
   conn().send(sig);
 }
 
-struct ReturnLaterError
-{
-  const Tag *tag;
-};
-
 bool ObjectAdaptor::handle_message(const Message &msg)
 {
   switch (msg.type())
@@ -233,6 +228,8 @@ bool ObjectAdaptor::handle_message(const Message &msg)
       catch (ReturnLaterError &rle)
       {
         _continuations[rle.tag] = new Continuation(conn(), cmsg, rle.tag);
+        // Let tag author know tag is registered
+        rle.tag->tag_registered();
       }
       return true;
     }
@@ -252,6 +249,24 @@ void ObjectAdaptor::return_later(const Tag *tag)
 {
   ReturnLaterError rle = { tag };
   throw rle;
+}
+
+const CallMessage* ObjectAdaptor::find_continuation_call_message(const Tag *tag) {
+    ObjectAdaptor::Continuation *my_cont = find_continuation(tag);
+    if (!my_cont) {
+        return 0;
+    }
+    return &(my_cont->_call);
+}
+
+void ObjectAdaptor::return_now(const Tag *tag, Message _return) {
+    ObjectAdaptor::Continuation *my_cont = find_continuation(tag);
+    if (!my_cont) {
+        debug_log("Unable to find continuation for tag %p");
+    } else {
+        _return.reader().copy_data(my_cont->writer());
+        return_now(my_cont);
+    }
 }
 
 void ObjectAdaptor::return_now(Continuation *ret)

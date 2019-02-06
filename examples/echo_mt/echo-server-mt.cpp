@@ -72,16 +72,65 @@ std::vector< uint8_t > EchoServer::Cat(const std::string &file)
   return std::vector< uint8_t > (buff, buff + nread);
 }
 
+
+// Sum is implemented to demonstrate how to utilize the RequestPiper
+// to both hand off sending results to yet another thread, as well as
+// sending a signal from the non-dispatcher thread.
+static void other_thread_sum(void* data);
+
+// The Tag subclass is utilized because the new thread should NOT be
+// started until we know the Tag utilized by return_later is registered, else the
+// new thread might not be able to return the final result because the tag is not
+// yet registered.
+
+// In this case we use tag_registered to start the thread.
+class TagThreadStarter : public DBus::Tag {
+public:
+    TagThreadStarter(const std::vector<int32_t>& ints, EchoServer& echo_server):
+        _ints(ints),
+        _echo_server(echo_server) {};
+
+    //safe to start thread since tag has been registered
+    virtual void tag_registered(void) const {
+        ::pthread_t sum_pthread;
+        //create and detach thread
+        ::pthread_create(&sum_pthread, NULL,
+                         (void* (*)(void*))&other_thread_sum, const_cast<TagThreadStarter*>(this));
+        // detach the thread so it doesn't have to be joined and will cleanup itself.
+        ::pthread_detach(sum_pthread);
+    }
+
+    const std::vector<int32_t> _ints;
+    EchoServer& _echo_server;
+};
+
+// This does the work in the new thread
+static void other_thread_sum(void* data) {
+    TagThreadStarter* call_data (reinterpret_cast<TagThreadStarter*>(data));
+    int32_t sum = 0;
+
+    const std::vector<int32_t>& ints(call_data->_ints);
+
+    for (size_t i = 0; i < ints.size(); ++i)
+        sum += ints[i];
+
+    call_data->_echo_server.SumSignal(sum, (int64_t)time(NULL));
+    const ::DBus::CallMessage* call_msg = call_data->_echo_server.find_continuation_call_message(call_data);
+    ::DBus::debug_log("%s find call_msg %p for tag %p", __func__, call_msg, call_data);
+    ::DBus::ReturnMessage reply(*call_msg);
+    ::DBus::MessageIter wi = reply.writer();
+    wi << sum;
+    call_data->_echo_server.return_now(call_data, reply);
+    delete call_data;
+}
+
 int32_t EchoServer::Sum(const std::vector<int32_t>& ints)
 {
-  int32_t sum = 0;
-
-  for (size_t i = 0; i < ints.size(); ++i) sum += ints[i];
-
-  this->SumSignal(sum, (int64_t)time(NULL));
-
-  return sum;
+  TagThreadStarter* call_data = new TagThreadStarter(ints, *this);
+  return_later(call_data);
 }
+
+
 
 std::map< std::string, std::string > EchoServer::Info()
 {

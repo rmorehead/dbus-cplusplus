@@ -150,9 +150,15 @@ public:
       thread" argument value.
     */
     RequestPiper(Connection &connection, const std::string&  server_path, pthread_t dispatcher_thread);
+
+    // For sending a response piped with send_later
+    virtual void return_now(const Tag *tag, Message _return);
+    virtual const CallMessage* find_continuation_call_message(const Tag *tag);
+
+
     void worker_thread(void);
-    void do_send(CallMessage& msg, Message& res, Tag* tag);
-    void do_dispatch(CallMessage& msg, Message& res, Tag* tag);
+    void do_send(const CallMessage& msg, Message& res, const Tag* tag);
+    void do_dispatch(const CallMessage& msg, Message& res, const Tag* tag);
 
     void start_pipe(BusDispatcher& dispatcher);
     void stop_pipe(BusDispatcher& dispatcher);
@@ -167,9 +173,14 @@ public:
     MethodTable origMethodTable;
 
 protected:
+
     virtual void _emit_signal(SignalMessage &sig);
 
 private:
+
+    typedef std::map<const Tag *, std::pair<CallMessage, const Tag*> > PipeContinuationMap;
+    PipeContinuationMap _pipe_continuations;
+    DefaultMutex _pipe_continuations_mutex;
 
     std::vector< std::pair<CallMessage, Tag*> > request_queue;
     DefaultMutex request_mutex;

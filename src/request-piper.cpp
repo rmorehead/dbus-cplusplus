@@ -72,7 +72,7 @@ Message RequestPiper::_Forwarding_stub(const CallMessage &call) {
     return_later(later_tag); //this throws exception
 }
 
-void RequestPiper::do_dispatch(CallMessage& msg, Message& res, Tag* tag) {
+void RequestPiper::do_dispatch(const CallMessage& msg, Message& res, const Tag* tag) {
     debug_log("server: do_dispatch() %p", tag);
     response_n_signal_mutex.lock();
     response_queue.push_back(std::make_pair(CallMessage(msg, false), Message(res, false)));
@@ -81,18 +81,14 @@ void RequestPiper::do_dispatch(CallMessage& msg, Message& res, Tag* tag) {
     response_n_signal_mutex.unlock();
 }
 
-void RequestPiper::do_send(CallMessage& msg, Message& res, Tag* tag) {
-    ObjectAdaptor::Continuation *my_cont = find_continuation(tag);
-
+void RequestPiper::do_send(const CallMessage& msg, Message& res, const Tag* tag) {
     try {
-        res.reader().copy_data(my_cont->writer());
-        return_now(my_cont);
+        return_now(tag, res);
         delete tag;
     } catch (Error &e) {
         debug_log("do_send() DBus Exception.");
         ErrorMessage em(msg, e.name(), e.message());
-        em.reader().copy_data(my_cont->writer());
-        return_now(my_cont);
+        return_now(tag, em);
         delete tag;
     }
 }
@@ -100,25 +96,17 @@ void RequestPiper::do_send(CallMessage& msg, Message& res, Tag* tag) {
 Message RequestPiper::_call_orig_method(const CallMessage &msg) {
     // stolen code
     const char *name = msg.member();
-    try {
-        MethodTable::iterator mi = origMethodTable.find(name);
-        if (mi != origMethodTable.end())
-        {
-            Message res = mi->second.call(msg);
-            return res;
-        }
-        else
-        {
-            Message res = ErrorMessage(msg, DBUS_ERROR_UNKNOWN_METHOD, name);
-            return res;
-        }
-    }
-    catch (Error &e)
+    MethodTable::iterator mi = origMethodTable.find(name);
+    if (mi != origMethodTable.end())
     {
-        ErrorMessage em(msg, e.name(), e.message());
-        return em;
+        Message res = mi->second.call(msg);
+        return res;
     }
-
+    else
+    {
+        Message res = ErrorMessage(msg, DBUS_ERROR_UNKNOWN_METHOD, name);
+        return res;
+    }
 }
 
 void RequestPiper::process_pipe_request(void) {
@@ -131,14 +119,32 @@ void RequestPiper::process_pipe_request(void) {
             return;
         }
 
-        CallMessage msg = request_queue[0].first;
+        const CallMessage msg = CallMessage(request_queue[0].first, false);
         Tag* tag = request_queue[0].second;
         request_queue.erase(request_queue.begin());
         request_mutex.unlock();
 
 
-        Message res = _call_orig_method(msg);
-        do_dispatch(msg, res, tag);
+        try {
+            Message res = _call_orig_method(msg);
+            do_dispatch(msg, res, tag);
+        }
+        catch (Error &e)
+        {
+            ErrorMessage em(msg, e.name(), e.message());
+            do_dispatch(msg, em, tag);
+        }
+        catch (ReturnLaterError &rle)
+        {
+            debug_log("Pushing onto _pipe_continuations, pipe tag tag is %p", rle.tag);
+            _pipe_continuations_mutex.lock();
+            // use new tag to index, but store old tag in pair
+            _pipe_continuations[rle.tag] = std::pair<CallMessage, const Tag*>(CallMessage(msg, false), tag);
+            _pipe_continuations_mutex.unlock();
+            // Let tag author know tag is registered
+            rle.tag->tag_registered();
+        }
+
 }
 
 void RequestPiper::check_pipe_request(void) {
@@ -179,9 +185,9 @@ void RequestPiper::dispatcher_pipe_handler(void *buffer, unsigned int nbyte) {
     if (curTag) {
         //it's a response message
         response_n_signal_mutex.lock();
-        debug_log("About to unpack dbus response call msg %i size %i tag %p", response_queue[0].first.serial(),
+        debug_log("About to unpack dbus response call msg %p size %i tag %p", response_queue[0].first,
                   (int)response_queue.size(), curTag);
-        CallMessage msg(response_queue[0].first);
+        const CallMessage msg(response_queue[0].first, false);
         Message res(response_queue[0].second);
         response_queue.erase(response_queue.begin());
         response_n_signal_mutex.unlock();
@@ -196,9 +202,6 @@ void RequestPiper::dispatcher_pipe_handler(void *buffer, unsigned int nbyte) {
         signal_queue.erase(signal_queue.begin());
         response_n_signal_mutex.unlock();
         debug_log("Sending signal dispatcher_pipe_handler %p %i", buffer, nbyte);
-
-        // Using dynamic cast because diamond inheritance makes refering to IA tricky
-        InterfaceAdaptor* ia = dynamic_cast<InterfaceAdaptor*>(this);
         ObjectAdaptor::_emit_signal(msg);
     }
 }
@@ -235,12 +238,9 @@ void RequestPiper::_emit_signal(SignalMessage &sig)
     debug_log("server: _emit_signal()");
     pthread_t this_thread = pthread_self();
     if (pthread_equal(this_thread, _dispatcher_thread)) {
-        // Don't use piping to get to dispatcher thread because we are
+        // Don't use piping to get to dispatcher thread if we are
         // in dispatcher thread.
-
-        // Using dynamic cast because diamond inheritance makes refering to IA tricky
         debug_log("_emit() Same thread dispatching locally");
-        InterfaceAdaptor* ia = dynamic_cast<InterfaceAdaptor*>(this);
         ObjectAdaptor::_emit_signal(sig);
         return;
     }
@@ -251,4 +251,40 @@ void RequestPiper::_emit_signal(SignalMessage &sig)
     Tag* tag = NULL;
     response_n_signal_pipe->write(&tag, sizeof(tag));
     response_n_signal_mutex.unlock();
+}
+
+void RequestPiper::return_now(const Tag *tag, Message _return) {
+    _pipe_continuations_mutex.lock();
+    PipeContinuationMap::iterator pi = _pipe_continuations.find(tag);
+    if (pi == _pipe_continuations.end()) {
+        // up call
+        debug_log("%s Did not find pipe continuation for %p", __FUNCTION__, tag);
+        _pipe_continuations_mutex.unlock();
+        return ObjectAdaptor::return_now(tag, _return);
+    }
+
+
+    // Found it, so we send it to the pipe like we usually would
+    const CallMessage call_msg(pi->second.first, false);
+    const Tag* orig_tag  = pi->second.second;
+    _pipe_continuations.erase(pi);
+    _pipe_continuations_mutex.unlock();
+    debug_log("%s Found pipe continuation for tag %p orig_tag %p call_msg %p", __FUNCTION__, tag, orig_tag,
+        call_msg);
+    do_dispatch(call_msg, _return, orig_tag);
+}
+
+const CallMessage* RequestPiper::find_continuation_call_message(const Tag *tag) {
+    _pipe_continuations_mutex.lock();
+    PipeContinuationMap::iterator pi = _pipe_continuations.find(tag);
+    if (pi == _pipe_continuations.end()) {
+        // not in request piper, must be a generic ObjectAdaptor tag.
+        _pipe_continuations_mutex.unlock();
+        // up call
+        return ObjectAdaptor::find_continuation_call_message(tag);
+    }
+
+    const CallMessage& res(pi->second.first);
+    _pipe_continuations_mutex.unlock();
+    return &res;
 }

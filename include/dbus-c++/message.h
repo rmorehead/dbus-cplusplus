@@ -167,6 +167,9 @@ public:
 
   ~Message();
 
+  Message();
+
+
   Message &operator = (const Message &m);
 
   Message copy();
@@ -201,7 +204,6 @@ public:
 
 protected:
 
-  Message();
 
 protected:
 

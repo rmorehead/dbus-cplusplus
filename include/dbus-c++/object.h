@@ -101,6 +101,12 @@ class DXXAPI Tag
 {
 public:
 
+  // This will be called when the tag is added to continuation
+  // tracking. This can be used as a callback when it is "safe" to
+  // send "return_later()" work to another thread that can use the
+  // continuation.
+  virtual void tag_registered(void) const {
+  }
   virtual ~Tag()
   {}
 };
@@ -133,6 +139,11 @@ public:
 
 protected:
 
+  struct ReturnLaterError
+  {
+      const Tag *tag;
+  };
+
   class DXXAPI Continuation
   {
   public:
@@ -157,6 +168,9 @@ protected:
   void return_later(const Tag *tag);
 
   void return_now(Continuation *ret);
+
+  virtual void return_now(const Tag *tag, Message _return);
+  virtual const CallMessage* find_continuation_call_message(const Tag *tag);
 
   void return_error(Continuation *ret, const Error error);
 
